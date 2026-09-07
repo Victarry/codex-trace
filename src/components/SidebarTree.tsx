@@ -4,14 +4,18 @@ import { timeAgo } from "../../shared/format";
 import { groupSessionsByProject } from "../lib/sessionGrouping";
 import { sessionDisplayName } from "../lib/sessionDisplay";
 import { OngoingDots } from "./OngoingDots";
+import { VscTrash } from "react-icons/vsc";
 
 interface SidebarTreeProps {
   sessions: CodexSessionInfo[];
   selectedPath: string | null;
   collapsedDates: Set<string>;
   onSelectSession: (info: CodexSessionInfo) => void;
+  onDeleteSession?: (info: CodexSessionInfo) => void;
   onToggleDate: (dateGroup: string) => void;
 }
+
+const NOOP_DELETE = () => {};
 
 /** Map each parent session id → its resolved inline worker sessions. */
 function buildWorkerMap(sessions: CodexSessionInfo[]): Map<string, CodexSessionInfo[]> {
@@ -33,6 +37,7 @@ export function SidebarTree({
   selectedPath,
   collapsedDates,
   onSelectSession,
+  onDeleteSession = NOOP_DELETE,
   onToggleDate,
 }: SidebarTreeProps) {
   const [expandedWorkers, setExpandedWorkers] = useState<Set<string>>(new Set());
@@ -118,6 +123,17 @@ export function SidebarTree({
                         <span className="sidebar-tree__session-label">{sessionDisplayName(s)}</span>
                         {s.is_ongoing && <OngoingDots count={1} />}
                         <span className="sidebar-tree__time">{timeAgo(s.start_time)}</span>
+                        <button
+                          className="sidebar-tree__delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSession(s);
+                          }}
+                          aria-label={`Delete session ${sessionDisplayName(s)}`}
+                          title="Delete session"
+                        >
+                          <VscTrash />
+                        </button>
                       </div>
                       {(s.is_external_worker || workers) && (
                         <div className="sidebar-tree__session-meta">
@@ -169,6 +185,17 @@ export function SidebarTree({
                               </span>
                               {w.is_ongoing && <OngoingDots count={1} />}
                               <span className="sidebar-tree__time">{timeAgo(w.start_time)}</span>
+                              <button
+                                className="sidebar-tree__delete-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteSession(w);
+                                }}
+                                aria-label={`Delete session ${sessionDisplayName(w)}`}
+                                title="Delete session"
+                              >
+                                <VscTrash />
+                              </button>
                             </div>
                           </div>
                         );

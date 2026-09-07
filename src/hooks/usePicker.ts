@@ -50,6 +50,13 @@ export function usePicker() {
     });
   }, []);
 
+  const removeSession = useCallback((path: string) => {
+    setState((prev) => ({
+      ...prev,
+      sessions: prev.sessions.filter((session) => session.path !== path),
+    }));
+  }, []);
+
   // picker-refresh carries no session data — the watcher sends only a lightweight
   // signal. Re-fetch via the API so the expensive discover_sessions scan runs
   // only on demand and is coalesced by the server-side cache.
@@ -89,6 +96,7 @@ export function usePicker() {
     setSearchQuery,
     discoverSessions,
     updateSessionOngoing,
+    removeSession,
   };
 }
 

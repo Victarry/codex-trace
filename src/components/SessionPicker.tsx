@@ -9,6 +9,7 @@ import { OngoingDots } from "./OngoingDots";
 import { useScrollToSelected } from "../hooks/useScrollToSelected";
 import { TokensIcon, ForwardIcon } from "./Icons";
 import { VscTerminal } from "react-icons/vsc";
+import { VscTrash } from "react-icons/vsc";
 
 interface SessionPickerProps {
   sessions: CodexSessionInfo[];
@@ -17,8 +18,11 @@ interface SessionPickerProps {
   selectedIndex: number;
   sessionsDir: string;
   onSelectSession: (info: CodexSessionInfo) => void;
+  onDeleteSession?: (info: CodexSessionInfo) => void;
   onSearchChange: (q: string) => void;
 }
+
+const NOOP_DELETE = () => {};
 
 export function SessionPicker({
   sessions,
@@ -27,6 +31,7 @@ export function SessionPicker({
   selectedIndex,
   sessionsDir,
   onSelectSession,
+  onDeleteSession = NOOP_DELETE,
   onSearchChange,
 }: SessionPickerProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -120,6 +125,17 @@ export function SessionPicker({
                       }}
                     >
                       Detail <ForwardIcon />
+                    </button>
+                    <button
+                      className="message__detail-btn picker__delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSession(s);
+                      }}
+                      aria-label={`Delete session ${sessionDisplayName(s)}`}
+                      title="Delete session"
+                    >
+                      <VscTrash />
                     </button>
                   </div>
                   <div className="picker__session-meta">

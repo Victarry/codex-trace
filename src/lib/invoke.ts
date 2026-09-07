@@ -25,6 +25,11 @@ const routes: Record<string, Route> = {
     path: "/api/session/load",
     body: (a) => ({ path: a.path }),
   },
+  delete_session: {
+    method: "POST",
+    path: "/api/session/delete",
+    body: (a) => ({ path: a.path, sessionsDir: a.sessionsDir }),
+  },
   watch_session: {
     method: "POST",
     path: "/api/session/watch",

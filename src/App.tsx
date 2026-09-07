@@ -14,6 +14,7 @@ import { KeybindBar } from "./components/KeybindBar";
 import { ViewToolbar } from "./components/ViewToolbar";
 import { ResizeHandle } from "./components/ResizeHandle";
 import { SettingsModal } from "./components/SettingsModal";
+import { invoke } from "./lib/invoke";
 
 function findToolByCallId(tools: CodexToolCall[], callId: string): CodexToolCall | null {
   for (const tool of tools) {
@@ -47,8 +48,8 @@ export function App() {
     addAll: addAllTools,
   } = useToggleSet();
 
-  const { loadSession } = session;
-  const { discoverSessions, updateSessionOngoing } = picker;
+  const { loadSession, clearSession } = session;
+  const { discoverSessions, updateSessionOngoing, removeSession } = picker;
 
   // Auto-discover sessions on mount
   const discoveredRef = useRef(false);
@@ -85,6 +86,38 @@ export function App() {
       clearTools();
     },
     [loadSession, clearTools, changeView],
+  );
+
+  const handleDeleteSession = useCallback(
+    async (info: CodexSessionInfo) => {
+      const title = info.thread_name?.trim() || info.ai_title?.trim() || info.id;
+      if (!window.confirm(`Delete session “${title}”? This cannot be undone.`)) return;
+      try {
+        await invoke<void>("delete_session", {
+          sessionsDir: picker.sessionsDir,
+          path: info.path,
+        });
+        removeSession(info.path);
+        if (session.sessionPath === info.path) {
+          await clearSession();
+          changeView("picker");
+        }
+        setPickerSelected((index) => Math.max(0, Math.min(index, picker.sessions.length - 2)));
+      } catch (error) {
+        console.error("Failed to delete session:", error);
+        window.alert(
+          `Failed to delete session: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+    [
+      changeView,
+      clearSession,
+      picker.sessions.length,
+      picker.sessionsDir,
+      removeSession,
+      session.sessionPath,
+    ],
   );
 
   const handleOpenDetail = useCallback(
@@ -206,6 +239,7 @@ export function App() {
             selectedPath={session.sessionPath || null}
             collapsedDates={collapsedDates}
             onSelectSession={handleSelectSession}
+            onDeleteSession={handleDeleteSession}
             onToggleDate={handleToggleDate}
           />
         </div>
@@ -222,6 +256,7 @@ export function App() {
               selectedIndex={pickerSelected}
               sessionsDir={picker.sessionsDir}
               onSelectSession={handleSelectSession}
+              onDeleteSession={handleDeleteSession}
               onSearchChange={picker.setSearchQuery}
             />
           )}

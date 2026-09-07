@@ -73,6 +73,7 @@ async fn run_server(state: Arc<HttpState>) {
         .route("/api/settings/dir", post(api_set_sessions_dir))
         .route("/api/sessions", post(api_discover_sessions))
         .route("/api/session/load", post(api_load_session))
+        .route("/api/session/delete", post(api_delete_session))
         .route("/api/session/watch", post(api_watch_session))
         .route("/api/session/unwatch", post(api_unwatch_session))
         .route("/api/picker/watch", post(api_watch_picker))
@@ -205,6 +206,31 @@ async fn api_load_session(Json(body): Json<PathBody>) -> Response {
         Err(e) => return err_response(session_load_error_status(&e), e),
     };
     ok_json(&session)
+}
+
+#[derive(Deserialize)]
+struct DeleteSessionBody {
+    path: String,
+    #[serde(rename = "sessionsDir")]
+    sessions_dir: String,
+}
+
+async fn api_delete_session(
+    State(state): State<Arc<HttpState>>,
+    Json(body): Json<DeleteSessionBody>,
+) -> Response {
+    match crate::commands::session::delete_session_from_path(&body.sessions_dir, &body.path) {
+        Ok(()) => {
+            let app_state = app_state(&state);
+            if let Err(error) = app_state.stop_session_watcher() {
+                return err_response(axum::http::StatusCode::INTERNAL_SERVER_ERROR, error);
+            }
+            app_state.clear_watched_ongoing();
+            app_state.invalidate_sessions_cache();
+            ok_json(&serde_json::json!({ "ok": true }))
+        }
+        Err(error) => err_response(axum::http::StatusCode::BAD_REQUEST, error),
+    }
 }
 
 // ---------------------------------------------------------------------------

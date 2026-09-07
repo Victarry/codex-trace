@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { CodexSessionInfo } from "../../shared/types";
 import { SessionPicker } from "./SessionPicker";
@@ -71,5 +71,27 @@ describe("SessionPicker", () => {
     expect(screen.getByText("Add session titles")).toBeInTheDocument();
     expect(screen.getByText("Fix remote session loading")).toBeInTheDocument();
     expect(screen.getByText("Inspect another project")).toBeInTheDocument();
+  });
+
+  it("calls the delete handler without selecting the session", () => {
+    const onSelectSession = vi.fn();
+    const onDeleteSession = vi.fn();
+    const session = makeSession();
+    const { container } = render(
+      <SessionPicker
+        sessions={[session]}
+        loading={false}
+        searchQuery=""
+        selectedIndex={0}
+        sessionsDir="/Users/test/.codex/sessions"
+        onSelectSession={onSelectSession}
+        onDeleteSession={onDeleteSession}
+        onSearchChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(container.querySelector(".picker__delete-btn") as Element);
+    expect(onDeleteSession).toHaveBeenCalledWith(session);
+    expect(onSelectSession).not.toHaveBeenCalled();
   });
 });

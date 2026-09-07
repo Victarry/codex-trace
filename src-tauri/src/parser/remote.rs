@@ -152,6 +152,30 @@ pub fn test_connection(spec_value: &str) -> Result<(), String> {
     run_ssh(&spec.host, &command).map(|_| ())
 }
 
+/// Delete one remote rollout and its optional plain/compressed sibling.
+///
+/// Both the sessions directory and the selected file are validated before any
+/// remote command is run, so an `ssh://` value cannot be used to delete a path
+/// outside the configured sessions tree.
+pub fn delete_remote_session(sessions_dir: &str, session_path: &str) -> Result<(), String> {
+    let root = parse_spec(sessions_dir)?;
+    let target = parse_spec(session_path)?;
+    let [plain, compressed] = validate_remote_delete_target(&root, &target)?;
+    let command = format!(
+        "if [ ! -e {plain} ] && [ ! -e {compressed} ]; then echo 'remote session file does not exist' >&2; exit 1; fi; rm -f -- {plain} {compressed}",
+        plain = shell_path(&plain),
+        compressed = shell_path(&compressed),
+    );
+    run_ssh(&root.host, &command).map(|_| {
+        let cache_key = format!("{}:{}", root.host, remote_index_path(&root.path));
+        if let Some(cache) = REMOTE_TITLE_CACHE.get() {
+            if let Ok(mut guard) = cache.lock() {
+                guard.remove(&cache_key);
+            }
+        }
+    })
+}
+
 /// Return a cheap, content-independent fingerprint of the remote rollout tree.
 /// Used by the picker watcher so it does not rescan gigabytes of JSONL every few
 /// seconds just to detect whether a file was appended.
@@ -325,6 +349,46 @@ fn remote_file_path(path: &str) -> Result<String, String> {
     Ok(trimmed.to_string())
 }
 
+fn remote_rollout_variants(path: &str) -> Result<[String; 2], String> {
+    let trimmed = path.trim_end_matches('/');
+    let name = Path::new(trimmed)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| "remote session path has no file name".to_string())?;
+    if !name.starts_with("rollout-") {
+        return Err("remote session path must point to a rollout file".to_string());
+    }
+    if let Some(plain) = name.strip_suffix(".jsonl.zst") {
+        let plain_path = Path::new(trimmed)
+            .with_file_name(format!("{plain}.jsonl"))
+            .to_string_lossy()
+            .to_string();
+        return Ok([plain_path, trimmed.to_string()]);
+    }
+    if name.ends_with(".jsonl") {
+        return Ok([trimmed.to_string(), format!("{trimmed}.zst")]);
+    }
+    Err("remote session path must end in .jsonl or .jsonl.zst".to_string())
+}
+
+fn validate_remote_delete_target(
+    root: &RemoteSpec,
+    target: &RemoteSpec,
+) -> Result<[String; 2], String> {
+    if root.host != target.host {
+        return Err("remote session host does not match the configured sessions host".to_string());
+    }
+    let variants = remote_rollout_variants(&target.path)?;
+    for variant in &variants {
+        if relative_remote_path(&root.path, variant).is_none() {
+            return Err(
+                "remote session path is outside the configured sessions directory".to_string(),
+            );
+        }
+    }
+    Ok(variants)
+}
+
 fn join_remote_path(root: &str, relative: &str) -> String {
     format!(
         "{}/{}",
@@ -333,14 +397,23 @@ fn join_remote_path(root: &str, relative: &str) -> String {
     )
 }
 
-#[cfg(test)]
 fn relative_remote_path(root: &str, file: &str) -> Option<PathBuf> {
     let root = root.trim_end_matches('/');
-    let relative = file.strip_prefix(root)?.trim_start_matches('/');
-    if relative.is_empty() || relative.starts_with("../") || relative == ".." {
+    let relative = file.strip_prefix(root)?.strip_prefix('/')?;
+    let relative_path = Path::new(relative);
+    if relative.is_empty()
+        || relative_path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
         None
     } else {
-        Some(PathBuf::from(relative))
+        Some(relative_path.to_path_buf())
     }
 }
 
@@ -729,5 +802,29 @@ mod tests {
             Some(PathBuf::from("2026/09/07/rollout-a.jsonl"))
         );
         assert!(relative_remote_path("/home/user/.codex/sessions", "/tmp/other.jsonl").is_none());
+    }
+
+    #[test]
+    fn validates_remote_delete_targets_and_siblings() {
+        let root = parse_spec("ssh://dev/~/.codex/sessions").unwrap();
+        let target =
+            parse_spec("ssh://dev/~/.codex/sessions/2026/09/07/rollout-example.jsonl.zst").unwrap();
+        assert_eq!(
+            validate_remote_delete_target(&root, &target).unwrap(),
+            [
+                "~/.codex/sessions/2026/09/07/rollout-example.jsonl".to_string(),
+                "~/.codex/sessions/2026/09/07/rollout-example.jsonl.zst".to_string(),
+            ]
+        );
+        assert!(validate_remote_delete_target(
+            &root,
+            &parse_spec("ssh://dev/~/.codex/other/rollout-example.jsonl").unwrap()
+        )
+        .is_err());
+        assert!(validate_remote_delete_target(
+            &root,
+            &parse_spec("ssh://other/~/.codex/sessions/rollout-example.jsonl").unwrap()
+        )
+        .is_err());
     }
 }

@@ -115,6 +115,11 @@ picker. Each session uses its Codex Desktop title from the sibling
 `~/.codex/session_index.jsonl` when available, then falls back to the title embedded in older
 rollouts, the project name, or the session ID.
 
+Delete a session with the trash button shown on a picker or sidebar row. Codex Trace asks for
+confirmation, removes the selected `rollout-*.jsonl` file (and any `.jsonl.zst` sibling), then
+refreshes the list. The same action works for local and SSH sessions; remote deletion is constrained
+to the configured `ssh://` sessions directory and host.
+
 ## Configuration
 
 Press `,` to open Settings and change the sessions directory.

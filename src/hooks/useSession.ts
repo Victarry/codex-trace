@@ -37,6 +37,15 @@ export function useSession() {
     }
   }, []);
 
+  const clearSession = useCallback(async () => {
+    try {
+      await invoke<void>("unwatch_session");
+    } catch {
+      // ignore
+    }
+    setState({ session: null, loading: false, sessionPath: "" });
+  }, []);
+
   useTauriEvent<{ session: CodexSession }>("session-update", (payload) => {
     setState((prev) => ({ ...prev, session: payload.session }));
   });
@@ -50,5 +59,6 @@ export function useSession() {
   return {
     ...state,
     loadSession,
+    clearSession,
   };
 }
