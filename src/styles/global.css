@@ -2974,6 +2974,24 @@ body {
   letter-spacing: 0.05em;
   margin-bottom: 0.4rem;
 }
+.turn-detail__section-label--collapsible {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.turn-detail__section-label--collapsible::-webkit-details-marker {
+  display: none;
+}
+.turn-detail__section-label--collapsible::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 9px;
+  transition: transform 0.1s ease;
+}
+.turn-detail__section--reasoning[open] > .turn-detail__section-label--collapsible::before {
+  transform: rotate(90deg);
+}
 .turn-detail__user-msg,
 .turn-detail__agent-msg,
 .turn-detail__final-answer,

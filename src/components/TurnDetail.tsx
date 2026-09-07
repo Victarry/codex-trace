@@ -124,13 +124,13 @@ export function TurnDetail({
           )}
 
           {reasoning.length > 0 && (
-            <div className="turn-detail__section turn-detail__section--reasoning">
-              <div
-                className="turn-detail__section-label"
+            <details className="turn-detail__section turn-detail__section--reasoning">
+              <summary
+                className="turn-detail__section-label turn-detail__section-label--collapsible"
                 style={{ color: "var(--reasoning-text)" }}
               >
                 {reasoningSummaries.length > 0 ? "Reasoning summary" : "Reasoning (encrypted)"}
-              </div>
+              </summary>
               {reasoningSummaries.length > 0 ? (
                 <div className="turn-detail__reasoning-summary">
                   {reasoningSummaries.map((msg, index) => (
@@ -153,7 +153,7 @@ export function TurnDetail({
                   (reasoning encrypted — summary unavailable)
                 </div>
               )}
-            </div>
+            </details>
           )}
 
           {timeline.length > 0 && (

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentMessage, CodexToolCall, CodexTurn, TokenInfo } from "../../shared/types";
 import { TurnDetail } from "./TurnDetail";
@@ -142,18 +142,31 @@ describe("TurnDetail", () => {
     expect(screen.getByText("DESKTOP_FINAL_OUTPUT")).toBeInTheDocument();
   });
 
-  it("renders Codex reasoning summaries", () => {
+  it("renders Codex reasoning summaries collapsed by default", () => {
     const reasoning: AgentMessage = {
       text: "REASONING_SUMMARY",
       phase: null,
       timestamp: "2026-04-26T10:00:00Z",
       is_reasoning: true,
     };
-    renderTurnDetail(makeTurn({ agent_messages: [reasoning], final_answer: null }));
+    const { container } = render(
+      <TurnDetail
+        turn={makeTurn({ agent_messages: [reasoning], final_answer: null })}
+        expanded={new Set()}
+        onToggle={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
 
     expect(screen.getByText("Reasoning summary")).toBeInTheDocument();
     expect(screen.getByText("REASONING_SUMMARY")).toBeInTheDocument();
     expect(screen.queryByText(/reasoning encrypted/)).not.toBeInTheDocument();
+    const section = container.querySelector(
+      ".turn-detail__section--reasoning",
+    ) as HTMLDetailsElement;
+    expect(section.open).toBe(false);
+    fireEvent.click(screen.getByText("Reasoning summary"));
+    expect(section.open).toBe(true);
   });
 
   it("interleaves tool calls with commentary by stream order", () => {
